@@ -1,8 +1,11 @@
-import pandas as pd
+from PIL import Image                                                            
+import numpy                                                                     
+import glob
 
-print("These are some additions to the code")
-i = 1
-i += 1
+Image.LOAD_TRUNCATED_IMAGES = True
 
-j= 12
-j -= 1
+imageFolderPath = '/Users/Jack/Desktop/PeliPhotos1Folder'
+imagePath = glob.glob(imageFolderPath + '/*.jpg') 
+
+im_array = numpy.array([numpy.array(Image.open(img).convert('L'), 'f') for img in imagePath])
+print im_array.shape
