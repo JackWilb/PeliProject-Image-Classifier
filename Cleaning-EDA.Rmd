@@ -1,0 +1,134 @@
+---
+title: "Cleaning Training"
+output: html_notebook
+---
+
+### Libraries
+
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(lubridate)
+library(imager)
+library(stringi)
+library(reshape)
+```
+
+### Import
+
+```{r, message=FALSE, warning=FALSE}
+train = read_csv("Training_data.csv", skip = 1)
+```
+
+### Clean
+
+```{r}
+# Fix variable names
+names(train) = c("file", "time", "weather", "smoke", "pelicans", "pods", "npods", "disturbance", "stageofnesting", "preds", "abandon", "pretty")
+
+# Remove appostrophe from file
+train$file = substr(train$file,1,nchar(train$file)-1)
+
+# Factor and clean factors
+train[,c(2:6,8:12)] <- lapply(train[,c(2:6,8:12)], factor)
+levels(train$weather) = c("cloud", "cloud", "cloud", "rain", "sun")
+
+# Make NAs meaningful
+
+
+# Create a date variable for time series
+train$date = substr(train$file,1,nchar(train$file)-4)
+train$date = ymd_hms(train$date)
+
+# Look at progress
+glimpse(train)
+
+# Remove uninformative variables
+train = train[,c(1:8,12,13)]
+```
+
+### Output
+
+```{r}
+write_csv(train, "train_clean.csv")
+```
+
+### EDA
+
+```{r, message = FALSE, warning = FALSE}
+ggplot(train, aes(x = date, y = npods)) + 
+  geom_point(alpha = 0.25) + 
+  geom_smooth(se = FALSE) + 
+  scale_y_continuous(limits = c(0,10)) + 
+  scale_x_datetime(date_breaks = "1 month", date_labels = "%b") + 
+  labs(title = "Number of Pelican Pods: 2017",
+       x = "Date",
+       y = "Number of Pods")
+```
+
+```{r}
+
+```
+
+### View Pretty Photos
+
+```{r}
+pretty = subset(train, train$pretty == TRUE)
+pimg = rep(NA, nrow(pretty))
+for (i in 1:nrow(pretty)) {
+  pimg[i] = stri_replace_all_fixed(paste("PeliPhotos1Folder/", pretty$file[i], collapse = ""), 
+                                            pattern = " ", replacement = "")
+}
+
+imlist = imlist(load.image(pimg[1]), load.image(pimg[2]), load.image(pimg[3]), load.image(pimg[4]),
+                load.image(pimg[5]), load.image(pimg[6]), load.image(pimg[7]), load.image(pimg[8]),
+                load.image(pimg[9]), load.image(pimg[10]), load.image(pimg[11]), load.image(pimg[12]),
+                load.image(pimg[13]), load.image(pimg[14]))
+#imlist = as.data.frame(imlist)
+for (i in 1:14) {
+  plot(imlist[i])
+}
+```
+
+### Weather
+
+```{r}
+ggplot(train, aes(x = date, y = weather)) + geom_point()
+```
+
+### Smoke
+
+```{r}
+smoke = subset(train, train$smoke == TRUE)
+simg = rep(NA, nrow(smoke))
+for (i in 1:nrow(smoke)) {
+  simg[i] = stri_replace_all_fixed(paste("PeliPhotos1Folder/", smoke$file[i], collapse = ""), 
+                                            pattern = " ", replacement = "")
+}
+
+imlist = imlist(load.image(simg[1]), load.image(simg[2]))
+#imlist = as.data.frame(imlist)
+for (i in 1:2) {
+  plot(imlist[i])
+}
+```
+
+### Disturbance
+
+```{r}
+df = na.omit(train[train$disturbance == TRUE,c("date", "disturbance")])
+ggplot(df, aes(x = date, y = disturbance)) + 
+  geom_point(alpha = 0.5)
+```
+
+### Notes
+
+`abandonment`, `stageofnesting` and `predators` are all false or NA and are, therefore, useless to us. 
+
+
+
+
+
+
+
+
+
