@@ -15,14 +15,23 @@ library(lubridate)
 library(imager)
 library(stringi)
 library(reshape)
-library(tensorflow)
 library(keras)
+library(jpeg)
 ```
 
 ### Import
 
 ```{r, message=FALSE, warning=FALSE}
+# Import hand classification
 train = read_csv("train_clean.csv")
+
+# List all images
+files <- paste("PeliPhotos1Folder/", list.files("PeliPhotos1Folder/", pattern = "\\.jpg$"), sep = "")
+
+# For loop to store photos in ram
+images = matrix(nrow = length(files), ncol = 4)
+
+list_of_images = lapply(files[1:100], readJPEG)
 ```
 
 ### Converting Book Code To New Application
