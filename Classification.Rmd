@@ -17,6 +17,7 @@ library(stringi)
 library(reshape)
 library(keras)
 library(jpeg)
+library(magick)
 ```
 
 ### Import
@@ -25,25 +26,88 @@ library(jpeg)
 # Import hand classification
 train = read_csv("train_clean.csv")
 
-# List all images
+# List all images (for running on new files)
 files <- paste("PeliPhotos1Folder/", list.files("PeliPhotos1Folder/", pattern = "\\.jpg$"), sep = "")
 
-# For loop to store photos in ram
-images = matrix(nrow = length(files), ncol = 4)
+train$filelong <- paste("PeliPhotos1Folder/", train$file, sep = "")
 
-list_of_images = lapply(files[1:100], readJPEG)
+# Import images 500 are 10GB
+list_of_images <- lapply(train$filelong[1:506], load.image)
+# Crop to the beach
+list_of_images <- lapply(list_of_images, imsub, x > 600, y > 300)
+# Grayscale them, 500 are 3.4
+list_of_images <- lapply(list_of_images, grayscale)
+
+# Import images 500 are 10GB
+list_of_images2 <- lapply(train$filelong[507:1011], load.image)
+# Crop to the beach
+list_of_images2 <- lapply(list_of_images2, imsub, x > 600, y > 300)
+# Grayscale them, 500 are 3.4
+list_of_images2 <- lapply(list_of_images2, grayscale)
+
+images <- c(list_of_images, list_of_images2)
+rm(list_of_images, list_of_images2)
+
+# cannyEdges may give 50% reduction in size
+
+# For loop to unpack list into matrix
+array <- array(dim = c(1011, 420, 680))
+i = 0
+
+while (i < length(images)) {
+  image <- images[[i+1]]
+  j = 0
+  while (j < 420) {
+    k = 0
+    while (k < 680) {
+      array[i,j,k] = image[k,j,1,1]
+      k = k + 1
+    }
+    j =j + 1
+  }
+  i = i+1
+}
+
+rm(images, image, i, j, k, files)
 ```
 
 ### Converting Book Code To New Application
 
 ```{r}
+set.seed(1)
+subset <- sample(1011, 506)
+train_images <- array[subset, , ]
+train_labels <- ifelse(train$pelicans[subset], 1, 0)
+train_labels[is.na(train_labels)] <- 0
+test_images <- array[-subset, , ]
+test_labels <- ifelse(train$pelicans[-subset], 1, 0)
+test_labels[is.na(test_labels)] <- 0
 
+train_labels <- to_categorical(train_labels)
+test_labels <- to_categorical(test_labels)
+rm(train, array, subset)
+
+train_images <- array_reshape(train_images, c(506, 420 * 680))
+test_images <- array_reshape(test_images, c(505, 420 * 680))
+
+network <- keras_model_sequential() %>% 
+  layer_dense(units = 1000, activation = "relu", input_shape = c(420 * 680)) %>%
+  layer_dense(units = 1000, activation = "relu", input_shape = c(420 * 680)) %>%
+  layer_dense(units = 2, activation = "sigmoid")
+
+network %>% compile(
+  optimizer = "rmsprop",
+  loss = "categorical_crossentropy",
+  metrics = c("categorical_accuracy"))
+
+network %>% fit(train_images, train_labels, epochs = 5, batch_size = 32)
+
+metrics <- network %>% evaluate(test_images, test_labels, verbose = 0)
+metrics
 ```
 
 ### Book code
 ```{r}
-library(keras)
-
 mnist <- dataset_mnist()
 train_images <- mnist$train$x
 train_labels <- mnist$train$y
